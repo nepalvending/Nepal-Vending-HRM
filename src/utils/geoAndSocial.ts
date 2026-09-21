@@ -13,6 +13,54 @@ export const KTM_OFFICE_GEOFENCE = {
   city: 'Kathmandu',
 };
 
+export const KATHMANDU_HQ_COORDS = {
+  latitude: 27.7025,
+  longitude: 85.324,
+  name: 'Nepal Vending Corporate HQ',
+  address: 'New Plaza, Putalisadak, Kathmandu 44600, Nepal',
+};
+
+export const GEOFENCE_RADIUS_METERS = 300;
+
+export interface FieldLocationPreset {
+  name: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  description: string;
+}
+
+export const FIELD_PRESET_LOCATIONS: FieldLocationPreset[] = [
+  {
+    name: 'Nepal Vending HQ (Putalisadak)',
+    latitude: 27.7025,
+    longitude: 85.324,
+    address: 'New Plaza, Putalisadak, Kathmandu 44600',
+    description: 'Corporate Office & Dispatch Hub',
+  },
+  {
+    name: 'Tribhuvan Int. Airport (TIA Terminal)',
+    latitude: 27.6966,
+    longitude: 85.3591,
+    address: 'Departure Lounge, Ring Road, Kathmandu',
+    description: 'Airport Vending Machines Kiosk',
+  },
+  {
+    name: 'Civil Mall Vending Cluster (Sundhara)',
+    latitude: 27.7008,
+    longitude: 85.3117,
+    address: 'Sundhara, Kathmandu 44600',
+    description: 'Retail & Beverage Maintenance',
+  },
+  {
+    name: 'Labim Mall Depot (Pulchowk, Lalitpur)',
+    latitude: 27.6784,
+    longitude: 85.3168,
+    address: 'Pulchowk Rd, Lalitpur 44700',
+    description: 'South Valley Refill Station',
+  },
+];
+
 /**
  * Standard Haversine formula to compute great-circle distance between two points in meters
  */

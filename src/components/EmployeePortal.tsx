@@ -29,6 +29,11 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronUp,
+  LayoutDashboard,
+  Home,
+  Edit,
+  LogIn,
+  Navigation,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -39,6 +44,9 @@ import {
   TaxReport,
   LeaveType,
   AutomatedOvertimeSettings,
+  CompanyAnnouncement,
+  EmployeeTask,
+  CompanyLeavePolicy,
 } from '../types';
 import { formatMinutes } from '../utils/overtimeCalculator';
 import {
@@ -48,33 +56,54 @@ import {
   toNepaliNumerals,
 } from '../utils/nepaliCalendar';
 import { calculateEmployeeLeaveAccrual } from '../utils/payrollCalculator';
+import { EmployeeDashboardSummary } from './EmployeeDashboardSummary';
 
 interface EmployeePortalProps {
   employee: Employee;
+  allEmployees?: Employee[];
   attendanceHistory: AttendanceRecord[];
   leaveRequests: LeaveRequest[];
   payrollSlips: PayrollSlip[];
   taxReports: TaxReport[];
+  announcements?: CompanyAnnouncement[];
+  tasks?: EmployeeTask[];
+  leavePolicies?: CompanyLeavePolicy[];
   overtimeSettings?: AutomatedOvertimeSettings;
   onSubmitLeaveRequest: (newLeave: Omit<LeaveRequest, 'id' | 'appliedAt' | 'status'>) => void;
   onPunchAttendance: (empId: string, punchType: 'Check-In' | 'Check-Out') => void;
   onViewDocument: (type: 'payslip' | 'tax', payroll?: PayrollSlip, taxReport?: TaxReport) => void;
   onOpenOvertimeModal: () => void;
+  onOpenGPSModal?: () => void;
+  onOpenProfileEditModal?: () => void;
+  onOpenSelfLoginModal?: () => void;
+  onOpenSosDrawer?: () => void;
+  onUpdateTaskStatus?: (taskId: string, newStatus: 'todo' | 'in_progress' | 'completed') => void;
+  onAddTask?: (newTask: Omit<EmployeeTask, 'id' | 'assignedAt'>) => void;
 }
 
 export const EmployeePortal: React.FC<EmployeePortalProps> = ({
   employee,
+  allEmployees = [],
   attendanceHistory,
   leaveRequests,
   payrollSlips,
   taxReports,
+  announcements = [],
+  tasks = [],
+  leavePolicies = [],
   overtimeSettings,
   onSubmitLeaveRequest,
   onPunchAttendance,
   onViewDocument,
   onOpenOvertimeModal,
+  onOpenGPSModal,
+  onOpenProfileEditModal,
+  onOpenSelfLoginModal,
+  onOpenSosDrawer,
+  onUpdateTaskStatus = () => {},
+  onAddTask = () => {},
 }) => {
-  const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'payroll'>('attendance');
+  const [activeTab, setActiveTab] = useState<'summary' | 'attendance' | 'leaves' | 'payroll'>('summary');
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [phoneFrameMode, setPhoneFrameMode] = useState(false);
 
@@ -253,13 +282,58 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
               <p className="text-xs text-slate-300 font-medium truncate mt-0.5">
                 {employee.designation}
               </p>
-              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 font-mono">
+              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 font-mono flex-wrap">
                 <span className="bg-white/10 px-2 py-0.5 rounded text-white font-bold">
                   {employee.employeeCode}
                 </span>
                 <span>•</span>
                 <span>Card: {employee.cardNo}</span>
+                {employee.bloodGroup && (
+                  <>
+                    <span>•</span>
+                    <span className="text-rose-300 font-bold bg-rose-500/20 px-1.5 py-0.2 rounded">
+                      {employee.bloodGroup}
+                    </span>
+                  </>
+                )}
               </div>
+            </div>
+
+            {/* Mobile Header Quick Actions */}
+            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 shrink-0">
+              {onOpenProfileEditModal && (
+                <button
+                  type="button"
+                  onClick={onOpenProfileEditModal}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors text-xs flex items-center gap-1 border border-white/10"
+                  title="Edit Basic Information"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span className="text-[10px] hidden sm:inline">Edit Info</span>
+                </button>
+              )}
+              {onOpenGPSModal && (
+                <button
+                  type="button"
+                  onClick={onOpenGPSModal}
+                  className="p-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white transition-colors text-xs flex items-center gap-1 shadow-xs"
+                  title="GPS Mobile Punch"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span className="text-[10px] hidden sm:inline">GPS</span>
+                </button>
+              )}
+              {onOpenSosDrawer && (
+                <button
+                  type="button"
+                  onClick={onOpenSosDrawer}
+                  className="p-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition-colors text-xs flex items-center gap-1 shadow-xs animate-pulse"
+                  title="Emergency SOS Dial & Chat"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold">SOS</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -297,33 +371,59 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
               </div>
             </div>
 
-            <button
-              id="employee-quick-punch-btn"
-              type="button"
-              onClick={handleQuickPunch}
-              disabled={isCheckedOutToday}
-              className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all ${
-                !isCheckedInToday
-                  ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-600/30'
-                  : !isCheckedOutToday
-                  ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-600/30'
-                  : 'bg-slate-700 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              <Camera className="w-3.5 h-3.5" />
-              <span>
-                {!isCheckedInToday
-                  ? 'Biometric Face Punch'
-                  : !isCheckedOutToday
-                  ? 'Punch Check-Out (End Shift)'
-                  : 'Shift Completed Today'}
-              </span>
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {onOpenGPSModal && (
+                <button
+                  type="button"
+                  onClick={onOpenGPSModal}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>GPS Punch</span>
+                </button>
+              )}
+
+              <button
+                id="employee-quick-punch-btn"
+                type="button"
+                onClick={handleQuickPunch}
+                disabled={isCheckedOutToday}
+                className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all ${
+                  !isCheckedInToday
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-600/30'
+                    : !isCheckedOutToday
+                    ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-600/30'
+                    : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>
+                  {!isCheckedInToday
+                    ? 'Biometric Face Punch'
+                    : !isCheckedOutToday
+                    ? 'Punch Check-Out (End Shift)'
+                    : 'Shift Completed Today'}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Tab Selector (App-style navigation) */}
-        <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50/80 p-1">
+        <div className="grid grid-cols-4 border-b border-slate-200 bg-slate-50/80 p-1">
+          <button
+            id="tab-emp-summary-btn"
+            type="button"
+            onClick={() => setActiveTab('summary')}
+            className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === 'summary'
+                ? 'bg-white text-rose-600 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>Summary</span>
+          </button>
           <button
             id="tab-emp-history-btn"
             type="button"
@@ -335,7 +435,7 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Check-in History</span>
+            <span>Attendance</span>
           </button>
           <button
             id="tab-emp-leaves-btn"
@@ -348,7 +448,7 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Request Leave</span>
+            <span>Leaves</span>
             {myLeaves.filter((l) => l.status === 'pending').length > 0 && (
               <span className="w-2 h-2 rounded-full bg-amber-500"></span>
             )}
@@ -364,7 +464,7 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Payslip & Tax (PDF)</span>
+            <span>Payslips</span>
           </button>
         </div>
 
@@ -373,6 +473,35 @@ export const EmployeePortal: React.FC<EmployeePortalProps> = ({
           <div className="m-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{submitFeedback}</span>
+          </div>
+        )}
+
+        {/* TAB 0: Comprehensive Dashboard Summary */}
+        {activeTab === 'summary' && (
+          <div className="p-4 sm:p-6">
+            <EmployeeDashboardSummary
+              currentEmployee={employee}
+              allEmployees={allEmployees}
+              attendanceRecords={attendanceHistory}
+              todayRecord={todayRecord}
+              announcements={announcements}
+              tasks={tasks}
+              latestPayslip={payrollSlips.find((p) => p.employeeId === employee.id)}
+              leaveRequests={leaveRequests}
+              leavePolicies={leavePolicies}
+              onOpenGPSModal={onOpenGPSModal || (() => {})}
+              onOpenProfileEditModal={onOpenProfileEditModal || (() => {})}
+              onOpenSelfLoginModal={onOpenSelfLoginModal || (() => {})}
+              onOpenSosDrawer={onOpenSosDrawer || (() => {})}
+              onNavigateTab={(tab) => {
+                if (tab === 'dashboard') setActiveTab('summary');
+                else if (tab === 'attendance') setActiveTab('attendance');
+                else if (tab === 'leave') setActiveTab('leaves');
+                else if (tab === 'payroll') setActiveTab('payroll');
+              }}
+              onUpdateTaskStatus={onUpdateTaskStatus}
+              onAddTask={onAddTask}
+            />
           </div>
         )}
 

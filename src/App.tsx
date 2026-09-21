@@ -11,6 +11,10 @@ import {
   INITIAL_PAYROLLS,
   INITIAL_TAX_REPORTS,
   INITIAL_DEVICES,
+  DEFAULT_COMPANY_LEAVE_POLICIES,
+  INITIAL_TASKS,
+  INITIAL_ANNOUNCEMENTS,
+  INITIAL_SUPPORT_MESSAGES,
 } from './data/mockData';
 import { DEFAULT_SHIFTS, calculateShiftAttendanceAndOvertime } from './utils/overtimeCalculator';
 import { recalculateAllEmployeePayrolls } from './utils/payrollCalculator';
@@ -23,6 +27,10 @@ import {
   HikvisionDevice,
   ShiftConfig,
   AutomatedOvertimeSettings,
+  CompanyLeavePolicy,
+  EmployeeTask,
+  CompanyAnnouncement,
+  SupportChatMessage,
 } from './types';
 import { Navbar } from './components/Navbar';
 import { EmployeePortal } from './components/EmployeePortal';
@@ -31,6 +39,10 @@ import { HikvisionSyncModal } from './components/HikvisionSyncModal';
 import { OvertimeAutomatorModal } from './components/OvertimeAutomatorModal';
 import { PayslipAndTaxModal } from './components/PayslipAndTaxModal';
 import { DualCalendarModal } from './components/DualCalendarModal';
+import { EmployeeProfileEditModal } from './components/EmployeeProfileEditModal';
+import { EmployeeSelfLoginModal } from './components/EmployeeSelfLoginModal';
+import { EmergencySosDrawer } from './components/EmergencySosDrawer';
+import { GPSAttendanceModal } from './components/GPSAttendanceModal';
 
 export default function App() {
   const [viewMode, setViewMode] = useState<'mobile' | 'manager'>('mobile');
@@ -44,6 +56,18 @@ export default function App() {
     recalculateAllEmployeePayrolls(INITIAL_EMPLOYEES, INITIAL_ATTENDANCE, INITIAL_LEAVES)
   );
   const [taxReports] = useState<TaxReport[]>(INITIAL_TAX_REPORTS);
+
+  // Leave Policies, Announcements, Tasks, and Support state
+  const [leavePolicies, setLeavePolicies] = useState<CompanyLeavePolicy[]>(DEFAULT_COMPANY_LEAVE_POLICIES);
+  const [announcements, setAnnouncements] = useState<CompanyAnnouncement[]>(INITIAL_ANNOUNCEMENTS);
+  const [tasks, setTasks] = useState<EmployeeTask[]>(INITIAL_TASKS);
+  const [supportMessages, setSupportMessages] = useState<SupportChatMessage[]>(INITIAL_SUPPORT_MESSAGES);
+
+  // New Modals & Drawers state
+  const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
+  const [isSelfLoginModalOpen, setIsSelfLoginModalOpen] = useState(false);
+  const [isSosDrawerOpen, setIsSosDrawerOpen] = useState(false);
+  const [isGPSModalOpen, setIsGPSModalOpen] = useState(false);
 
   // Automated Overtime Settings (can be ON or OFF for employee mobile app)
   const [overtimeSettings, setOvertimeSettings] = useState<AutomatedOvertimeSettings>({
@@ -318,6 +342,206 @@ export default function App() {
     );
   };
 
+  // Handler: Update Employee Personal Info & Emergency Contacts
+  const handleUpdateEmployeeProfile = (updatedEmp: Employee) => {
+    setEmployees((prev) => prev.map((e) => (e.id === updatedEmp.id ? updatedEmp : e)));
+    if (selectedEmployee.id === updatedEmp.id) {
+      setSelectedEmployee(updatedEmp);
+    }
+  };
+
+  // Handler: Update Company Leave Policy
+  const handleUpdatePolicy = (updatedPolicy: CompanyLeavePolicy) => {
+    setLeavePolicies((prev) =>
+      prev.map((p) => (p.id === updatedPolicy.id ? updatedPolicy : p))
+    );
+  };
+
+  // Handler: Update Employee Leave Balance directly (Allocation by HR)
+  const handleUpdateEmployeeLeaveBalance = (
+    empId: string,
+    balances: Employee['leaveBalance']
+  ) => {
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== empId) return emp;
+        const updated = { ...emp, leaveBalance: balances };
+        if (selectedEmployee.id === empId) {
+          setSelectedEmployee(updated);
+        }
+        return updated;
+      })
+    );
+    setTimeout(() => handleRecalculateAllPayrolls(), 0);
+  };
+
+  // Handler: Employee Task status update
+  const handleUpdateTaskStatus = (
+    taskId: string,
+    newStatus: 'todo' | 'in_progress' | 'completed'
+  ) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+    );
+  };
+
+  // Handler: Add new task
+  const handleAddTask = (newTaskData: Omit<EmployeeTask, 'id' | 'assignedAt'>) => {
+    const newTask: EmployeeTask = {
+      ...newTaskData,
+      id: `task_${Date.now()}`,
+      assignedAt: '2026-09-19',
+    };
+    setTasks((prev) => [newTask, ...prev]);
+  };
+
+  // Handler: Publish company announcement
+  const handlePublishAnnouncement = (
+    data: Omit<CompanyAnnouncement, 'id' | 'publishedAt'>
+  ) => {
+    const newAnnouncement: CompanyAnnouncement = {
+      ...data,
+      id: `ann_${Date.now()}`,
+      publishedAt: '2026-09-19',
+    };
+    setAnnouncements((prev) => [newAnnouncement, ...prev]);
+  };
+
+  // Handler: Support chat messaging
+  const handleSendChatMessage = (content: string) => {
+    const userMsg: SupportChatMessage = {
+      id: `msg_${Date.now()}`,
+      sender: 'employee',
+      senderName: selectedEmployee.name,
+      message: content,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setSupportMessages((prev) => [...prev, userMsg]);
+
+    // Simulate friendly HR auto-reply
+    setTimeout(() => {
+      const hrReply: SupportChatMessage = {
+        id: `msg_rep_${Date.now()}`,
+        sender: 'hr_agent',
+        senderName: 'Sunita Adhikari (HR Hotline)',
+        message: `Namaste ${selectedEmployee.name.split(' ')[0]}, we received your message: "${content}". An HR officer will contact your direct phone (${selectedEmployee.phone}) shortly. If this is an urgent emergency, please tap 102/100 above.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setSupportMessages((prev) => [...prev, hrReply]);
+    }, 1000);
+  };
+
+  // Handler: GPS Punch
+  const handleGPSPunch = (
+    type: 'checkIn' | 'checkOut',
+    coords: {
+      latitude: number;
+      longitude: number;
+      accuracy: number;
+      address: string;
+      isWithinGeofence: boolean;
+      distanceMeters: number;
+    }
+  ) => {
+    const today = '2026-09-19';
+    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const shift = shifts[0];
+    const geofenceStatus: 'inside' | 'outside' = coords.isWithinGeofence ? 'inside' : 'outside';
+
+    if (type === 'checkIn') {
+      const existing = attendanceRecords.find((r) => r.employeeId === selectedEmployee.id && r.date === today);
+      if (existing) {
+        setAttendanceRecords((prev) =>
+          prev.map((r) =>
+            r.id === existing.id
+              ? {
+                  ...r,
+                  checkIn: currentTime,
+                  gpsLocation: {
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                    accuracy: coords.accuracy,
+                    address: coords.address,
+                    geofenceStatus,
+                    distanceMeters: coords.distanceMeters,
+                  },
+                  notes: `GPS Mobile Punch (${coords.isWithinGeofence ? 'In Geofence' : 'Field Remote'})`,
+                }
+              : r
+          )
+        );
+      } else {
+        const newRec: AttendanceRecord = {
+          id: `att_gps_${Date.now()}`,
+          employeeId: selectedEmployee.id,
+          employeeCode: selectedEmployee.employeeCode,
+          employeeName: selectedEmployee.name,
+          date: today,
+          checkIn: currentTime,
+          checkOut: null,
+          shiftId: shift.id,
+          shiftName: shift.name,
+          verifyMode: 'Mobile_GPS',
+          terminalId: 'GPS-MOBILE-APP',
+          terminalName: 'Nepal Vending Mobile GPS Attendance',
+          regularMinutes: 0,
+          overtimeMinutes: 0,
+          lateMinutes: 0,
+          earlyDepartureMinutes: 0,
+          status: 'present',
+          isOvertimeApproved: false,
+          overtimePayNPR: 0,
+          gpsLocation: {
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            accuracy: coords.accuracy,
+            address: coords.address,
+            geofenceStatus,
+            distanceMeters: coords.distanceMeters,
+          },
+          notes: `GPS Mobile Punch (${coords.isWithinGeofence ? 'In Geofence' : 'Field Remote'})`,
+        };
+        setAttendanceRecords((prev) => [newRec, ...prev]);
+      }
+    } else {
+      // Check-out with GPS
+      setAttendanceRecords((prev) =>
+        prev.map((rec) => {
+          if (rec.employeeId === selectedEmployee.id && rec.date === today) {
+            const calc = calculateShiftAttendanceAndOvertime(
+              today,
+              rec.checkIn || '09:00',
+              currentTime,
+              shift,
+              selectedEmployee.hourlyRateNPR
+            );
+            return {
+              ...rec,
+              checkOut: currentTime,
+              regularMinutes: calc.regularMinutes,
+              overtimeMinutes: calc.overtimeMinutes,
+              lateMinutes: calc.lateMinutes,
+              earlyDepartureMinutes: calc.earlyDepartureMinutes,
+              status: calc.status,
+              isOvertimeApproved: calc.overtimeMinutes > 0,
+              overtimePayNPR: calc.overtimePayNPR,
+              gpsLocation: {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                accuracy: coords.accuracy,
+                address: coords.address,
+                geofenceStatus,
+                distanceMeters: coords.distanceMeters,
+              },
+              notes: `GPS Check-Out (${coords.isWithinGeofence ? 'In Geofence' : 'Field Remote'})`,
+            };
+          }
+          return rec;
+        })
+      );
+    }
+  };
+
   // Handler: View Document (Payslip or Tax Report) in modal for download
   const handleViewDocument = (
     type: 'payslip' | 'tax',
@@ -344,6 +568,9 @@ export default function App() {
         onOpenHikvisionModal={() => setIsHikvisionModalOpen(true)}
         onOpenOvertimeModal={() => setIsOvertimeModalOpen(true)}
         onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
+        onOpenSelfLoginModal={() => setIsSelfLoginModalOpen(true)}
+        onOpenSosDrawer={() => setIsSosDrawerOpen(true)}
+        onOpenGPSModal={() => setIsGPSModalOpen(true)}
         hikvisionOnlineCount={devices.filter((d) => d.status === 'online').length}
         pendingLeavesCount={pendingLeavesCount}
         totalOtHoursThisMonth={totalOtMinutesThisMonth / 60}
@@ -356,15 +583,25 @@ export default function App() {
         {viewMode === 'mobile' ? (
           <EmployeePortal
             employee={selectedEmployee}
+            allEmployees={employees}
             attendanceHistory={attendanceRecords}
             leaveRequests={leaveRequests}
             payrollSlips={payrollSlips.filter((p) => p.employeeId === selectedEmployee.id)}
             taxReports={taxReports.filter((t) => t.employeeId === selectedEmployee.id)}
+            announcements={announcements}
+            tasks={tasks}
+            leavePolicies={leavePolicies}
             overtimeSettings={overtimeSettings}
             onSubmitLeaveRequest={handleSubmitLeaveRequest}
             onPunchAttendance={handlePunchAttendance}
             onViewDocument={handleViewDocument}
             onOpenOvertimeModal={() => setIsOvertimeModalOpen(true)}
+            onOpenGPSModal={() => setIsGPSModalOpen(true)}
+            onOpenProfileEditModal={() => setIsProfileEditModalOpen(true)}
+            onOpenSelfLoginModal={() => setIsSelfLoginModalOpen(true)}
+            onOpenSosDrawer={() => setIsSosDrawerOpen(true)}
+            onUpdateTaskStatus={handleUpdateTaskStatus}
+            onAddTask={handleAddTask}
           />
         ) : (
           <ManagerDashboard
@@ -375,6 +612,11 @@ export default function App() {
             shifts={shifts}
             overtimeSettings={overtimeSettings}
             payrollSlips={payrollSlips}
+            leavePolicies={leavePolicies}
+            announcements={announcements}
+            tasks={tasks}
+            onUpdatePolicy={handleUpdatePolicy}
+            onUpdateEmployeeLeaveBalance={handleUpdateEmployeeLeaveBalance}
             onUpdateOvertimeSettings={handleUpdateOvertimeSettings}
             onSwitchToMobilePreview={() => setViewMode('mobile')}
             onApproveLeave={handleApproveLeave}
@@ -424,6 +666,46 @@ export default function App() {
       <DualCalendarModal
         isOpen={isCalendarModalOpen}
         onClose={() => setIsCalendarModalOpen(false)}
+      />
+
+      {/* Employee Basic Info & Emergency Contact Edit Modal */}
+      <EmployeeProfileEditModal
+        isOpen={isProfileEditModalOpen}
+        onClose={() => setIsProfileEditModalOpen(false)}
+        employee={selectedEmployee}
+        onSave={handleUpdateEmployeeProfile}
+      />
+
+      {/* Employee Self-Login & Profile Switcher Modal */}
+      <EmployeeSelfLoginModal
+        isOpen={isSelfLoginModalOpen}
+        onClose={() => setIsSelfLoginModalOpen(false)}
+        employees={employees}
+        currentEmployee={selectedEmployee}
+        onSelectEmployee={(emp) => {
+          setSelectedEmployee(emp);
+          setViewMode('mobile');
+        }}
+      />
+
+      {/* Emergency SOS Drawer with One-Tap Hotline & HR Chat */}
+      <EmergencySosDrawer
+        isOpen={isSosDrawerOpen}
+        onClose={() => setIsSosDrawerOpen(false)}
+        currentEmployee={selectedEmployee}
+        chatMessages={supportMessages}
+        onSendMessage={handleSendChatMessage}
+      />
+
+      {/* GPS Mobile Attendance & Geofencing Punch Modal */}
+      <GPSAttendanceModal
+        isOpen={isGPSModalOpen}
+        onClose={() => setIsGPSModalOpen(false)}
+        currentEmployee={selectedEmployee}
+        todayRecord={attendanceRecords.find(
+          (r) => r.employeeId === selectedEmployee.id && r.date === '2026-09-19'
+        )}
+        onGPSPunch={handleGPSPunch}
       />
 
       {/* Footer */}

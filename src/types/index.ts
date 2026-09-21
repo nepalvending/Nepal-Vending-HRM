@@ -84,6 +84,15 @@ export interface AttendanceRecord {
   gpsAddress?: string;
   isWithinGeofence?: boolean;
   distanceFromOfficeMeters?: number;
+  gpsLocation?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    address?: string;
+    geofenceStatus?: 'inside' | 'outside';
+    distanceMeters?: number;
+    selfieUrl?: string;
+  };
 }
 
 export type LeaveType =

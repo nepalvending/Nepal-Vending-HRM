@@ -29,6 +29,8 @@ import {
   Coins,
   ShieldAlert,
   Percent,
+  BookOpen,
+  ShieldCheck,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -40,11 +42,17 @@ import {
   AutomatedOvertimeSettings,
   PayrollSlip,
   TaxReport,
+  CompanyLeavePolicy,
+  CompanyAnnouncement,
+  EmployeeTask,
 } from '../types';
 import { formatMinutes } from '../utils/overtimeCalculator';
 import { adToBs, toNepaliNumerals } from '../utils/nepaliCalendar';
 import { AttendanceTrendChart } from './AttendanceTrendChart';
 import { AutomatedOvertimeManager } from './AutomatedOvertimeManager';
+import { CompanyLeavePolicyManager } from './CompanyLeavePolicyManager';
+import { BirthdayTrackerWidget } from './BirthdayTrackerWidget';
+import { ColleaguesOnLeaveWidget } from './ColleaguesOnLeaveWidget';
 import {
   calculateEmployeeLeaveAccrual,
   exportPayrollsToCSV,
@@ -59,6 +67,11 @@ interface ManagerDashboardProps {
   shifts: ShiftConfig[];
   overtimeSettings: AutomatedOvertimeSettings;
   payrollSlips?: PayrollSlip[];
+  leavePolicies?: CompanyLeavePolicy[];
+  announcements?: CompanyAnnouncement[];
+  tasks?: EmployeeTask[];
+  onUpdatePolicy?: (policy: CompanyLeavePolicy) => void;
+  onUpdateEmployeeLeaveBalance?: (empId: string, balances: Employee['leaveBalance']) => void;
   onUpdateOvertimeSettings: (newSettings: Partial<AutomatedOvertimeSettings>) => void;
   onApproveLeave: (leaveId: string, managerRemark: string) => void;
   onRejectLeave: (leaveId: string, managerRemark: string) => void;
@@ -78,6 +91,11 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
   shifts,
   overtimeSettings,
   payrollSlips = [],
+  leavePolicies = [],
+  announcements = [],
+  tasks = [],
+  onUpdatePolicy,
+  onUpdateEmployeeLeaveBalance,
   onUpdateOvertimeSettings,
   onApproveLeave,
   onRejectLeave,
@@ -88,7 +106,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
   onViewDocument,
   onRecalculatePayroll,
 }) => {
-  const [activeTab, setActiveTab] = useState<'leaves' | 'attendance' | 'trends' | 'overtime' | 'payroll'>('leaves');
+  const [activeTab, setActiveTab] = useState<'leaves' | 'attendance' | 'trends' | 'overtime' | 'payroll' | 'policies'>('leaves');
   const [leaveFilter, setLeaveFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [attendanceSearch, setAttendanceSearch] = useState('');
   const [payrollSearch, setPayrollSearch] = useState('');
@@ -457,11 +475,41 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
               1st & 18th Rule
             </span>
           </button>
+
+          <button
+            id="tab-manager-policies"
+            type="button"
+            onClick={() => setActiveTab('policies')}
+            className={`flex items-center gap-2 pb-3 px-4 text-xs font-bold border-b-2 transition-colors ${
+              activeTab === 'policies'
+                ? 'border-rose-600 text-rose-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Leave Policy & Quota Manager</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded font-mono bg-emerald-100 text-emerald-800">
+              Company Policy
+            </span>
+          </button>
         </div>
 
         {/* TAB 1: Leave Requests Approval Queue */}
         {activeTab === 'leaves' && (
           <div className="p-6 space-y-6">
+            {/* Real-time Workforce Availability & Celebrations Overview */}
+            <div className="space-y-4">
+              <ColleaguesOnLeaveWidget
+                employees={employees}
+                leaveRequests={leaveRequests}
+                currentDateStr="2026-09-19"
+              />
+              <BirthdayTrackerWidget
+                employees={employees}
+                referenceDateStr="2026-09-19"
+              />
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
@@ -1445,6 +1493,18 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 6: Company Leave Policy & Quota Manager */}
+        {activeTab === 'policies' && (
+          <div className="p-6">
+            <CompanyLeavePolicyManager
+              policies={leavePolicies}
+              employees={employees}
+              onUpdatePolicy={onUpdatePolicy || (() => {})}
+              onUpdateEmployeeLeaveBalance={onUpdateEmployeeLeaveBalance || (() => {})}
+            />
           </div>
         )}
       </div>

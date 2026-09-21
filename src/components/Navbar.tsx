@@ -21,6 +21,9 @@ interface NavbarProps {
   onOpenHikvisionModal: () => void;
   onOpenOvertimeModal: () => void;
   onOpenCalendarModal: () => void;
+  onOpenSelfLoginModal?: () => void;
+  onOpenSosDrawer?: () => void;
+  onOpenGPSModal?: () => void;
   hikvisionOnlineCount: number;
   pendingLeavesCount: number;
   totalOtHoursThisMonth: number;
@@ -37,6 +40,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenHikvisionModal,
   onOpenOvertimeModal,
   onOpenCalendarModal,
+  onOpenSelfLoginModal,
+  onOpenSosDrawer,
+  onOpenGPSModal,
   hikvisionOnlineCount,
   pendingLeavesCount,
   totalOtHoursThisMonth,
@@ -167,8 +173,45 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden sm:inline">Hikvision Terminal / CSV</span>
             </button>
 
+            {/* GPS Punch Shortcut */}
+            {onOpenGPSModal && (
+              <button
+                id="nav-gps-punch-btn"
+                type="button"
+                onClick={onOpenGPSModal}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                title="GPS Mobile Punch & Geofencing"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>GPS Punch</span>
+              </button>
+            )}
+
+            {/* SOS Emergency Hotline & Chat */}
+            {onOpenSosDrawer && (
+              <button
+                id="nav-sos-btn"
+                type="button"
+                onClick={onOpenSosDrawer}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors"
+                title="Emergency Hotline, One-Tap Dial & Support Chat"
+              >
+                <span className="text-[11px] font-black">SOS</span>
+              </button>
+            )}
+
             {/* Employee Avatar Selector (Quick Role switch) */}
             <div className="flex items-center pl-1 border-l border-slate-200 ml-1">
+              {onOpenSelfLoginModal && (
+                <button
+                  type="button"
+                  onClick={onOpenSelfLoginModal}
+                  className="mr-2 text-[10px] font-bold px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 hidden md:block"
+                  title="Employee Self-Login Portal"
+                >
+                  Self Login
+                </button>
+              )}
               <label htmlFor="active-employee-select" className="sr-only">
                 Switch Active Employee
               </label>
